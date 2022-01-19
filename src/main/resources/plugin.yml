@@ -1,0 +1,6 @@
+name: TeleportRequest
+version: '${project.version}'
+main: org.dreamleaf.teleportrequest.TeleportRequest
+api-version: 1.18
+authors: [ bradd07 ]
+description: A simple teleport request plugin
