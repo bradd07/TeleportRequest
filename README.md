@@ -2,6 +2,7 @@
 
 A very efficient yet simple teleport request plugin that is open source and free. For niche use when you don't want to use Essentials.
 
+
 # Commands
 
 - /tpa <player> - Sends a teleport request to a specified player that is online
@@ -9,4 +10,7 @@ A very efficient yet simple teleport request plugin that is open source and free
 - /tpaccept - Accept a teleport request that someone has sent you
 - /tpdeny - Deny a teleport request that someone has sent you
 
+  
 # License
+  
+Licensed under the GNU General Public License v3.0
