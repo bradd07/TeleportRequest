@@ -1,6 +1,14 @@
 package org.dreamleaf.teleportrequest;
 import org.bukkit.ChatColor;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitTask;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 
 /**
  *
@@ -22,7 +30,7 @@ import org.bukkit.plugin.java.JavaPlugin;
  * <https://www.gnu.org/licenses/>.
  *
  */
-public final class TeleportRequest extends JavaPlugin {
+public final class TeleportRequest extends JavaPlugin implements Listener {
 
     /**
      * TeleportRequest reference for plugin
@@ -34,6 +42,11 @@ public final class TeleportRequest extends JavaPlugin {
      */
     private static TPRequest requestsRoot = null;
 
+    /**
+     * List of players on delay for teleport
+     */
+    public static final Map<UUID, BukkitTask> onDelay = new HashMap<>();
+
     @Override
     public void onDisable() {
         // notify shutdown
@@ -44,6 +57,12 @@ public final class TeleportRequest extends JavaPlugin {
     public void onEnable() {
         // initialize instance
         instance = this;
+
+        // get config file
+        saveDefaultConfig();
+
+        // register events
+        getServer().getPluginManager().registerEvents(new TPEvents(), this);
 
         // notify startup
         getServer().getConsoleSender().sendMessage(ChatColor.GREEN + "[TeleportRequest] Plugin Enabled");

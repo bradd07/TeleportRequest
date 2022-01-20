@@ -117,7 +117,7 @@ public abstract class CommandHandler extends BukkitCommand implements CommandExe
         CommandMap commandMap = getCommandMap();
         if (commandMap != null)
         {
-            commandMap.register(command, this);
+            commandMap.register(TeleportRequest.getInstance().getName(), this);
         }
     }
 

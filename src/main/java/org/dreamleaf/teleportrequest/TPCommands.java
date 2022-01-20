@@ -4,7 +4,14 @@ import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
 import org.jetbrains.annotations.NotNull;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 
 /**
  * Class contains all commands for the plugin
@@ -30,10 +37,11 @@ public class TPCommands {
         tpahere();
         tpaccept();
         tpdeny();
+        tpdelay();
     }
 
     /**
-     * Handles creating a new TPRequest based off type and verifies
+     * Handles creating a new TPRequest and verifies
      * that there is not an existing request with the player
      * @param sender Player who sent the teleport request
      * @param receiver Player who received the teleport request
@@ -101,7 +109,8 @@ public class TPCommands {
 
     /**
      * Tpaccept command
-     * Accepts a teleport request that a user has received
+     * Accepts a teleport request that a user has received - Finds request, determines delay,
+     * and teleports based off request type (tpa/tpahere)
      * Usage: /tpaccept
      */
     public void tpaccept() {
@@ -111,6 +120,7 @@ public class TPCommands {
                 // initialize variables
                 Player teleportPlayer;
                 Location location;
+                int delay = TeleportRequest.getInstance().getConfig().getInt("delay");
 
                 // get sender as player object
                 Player sendPlayer = (Player) sender;
@@ -122,26 +132,85 @@ public class TPCommands {
                 // check that request exists
                 if (request != null)
                 {
+                    // notify command sender
+                    sendPlayer.sendMessage(ChatColor.GREEN + "Teleport request accepted.");
+
                     // check request type, was this tpa or tpahere?
+                    // handle tpa request
                     if (request.type == TPA)
                     {
                         // get info from player to tp to
                         teleportPlayer = request.receiver;
                         location = teleportPlayer.getLocation();
 
-                        // begin teleportation
-                        request.sender.sendMessage(ChatColor.GREEN + "Teleport commencing...");
-                        request.sender.teleport(location);
+                        // check for no active delay or OP user
+                        if (delay == 0 || request.sender.hasPermission("TeleportRequest.admin"))
+                        {
+                            // begin teleportation
+                            request.sender.sendMessage(ChatColor.GREEN + "Teleport commencing...");
+                            request.sender.teleport(location);
+                        }
+                        else
+                        {
+                            // notify player of delay
+                            request.sender.sendMessage(ChatColor.GREEN + "Teleport commencing in " + ChatColor.GRAY +
+                                                                delay + ChatColor.GREEN + " seconds... Don't move!");
+
+                            // check for already on delay
+                            if(TeleportRequest.onDelay.containsKey(request.sender.getUniqueId()))
+                            {
+                                // cancel old delay
+                                TeleportRequest.onDelay.get(request.sender.getUniqueId()).cancel();
+                                TeleportRequest.onDelay.remove(request.sender.getUniqueId());
+                            }
+
+                            // put user on delay
+                            TeleportRequest.onDelay.put(request.sender.getUniqueId(), new BukkitRunnable() {
+                                @Override
+                                public void run() {
+                                    request.sender.teleport(location);
+                                    TeleportRequest.onDelay.remove(request.sender.getUniqueId());
+                                }
+                            }.runTaskLater(TeleportRequest.getInstance(), 20L * delay));
+                        }
                     }
+                    // handle tpahere request
                     else
                     {
                         // get info from player to tp to
                         teleportPlayer = request.sender;
                         location = teleportPlayer.getLocation();
 
-                        // begin teleportation
-                        sendPlayer.sendMessage(ChatColor.GREEN + "Teleport commencing...");
-                        sendPlayer.teleport(location);
+                        // check for no active delay or OP user
+                        if (delay == 0 || sendPlayer.hasPermission("TeleportRequest.admin"))
+                        {
+                            // begin teleportation
+                            sendPlayer.sendMessage(ChatColor.GREEN + "Teleport commencing...");
+                            sendPlayer.teleport(location);
+                        }
+                        else
+                        {
+                            // notify player of delay
+                            sendPlayer.sendMessage(ChatColor.GREEN + "Teleport commencing in " + ChatColor.GRAY +
+                                                            delay + ChatColor.GREEN + " seconds... Don't move!");
+
+                            // check for already on delay
+                            if(TeleportRequest.onDelay.containsKey(sendPlayer.getUniqueId()))
+                            {
+                                // cancel old delay
+                                TeleportRequest.onDelay.get(sendPlayer.getUniqueId()).cancel();
+                                TeleportRequest.onDelay.remove(sendPlayer.getUniqueId());
+                            }
+
+                            // put user on delay
+                            TeleportRequest.onDelay.put(sendPlayer.getUniqueId(), new BukkitRunnable() {
+                                @Override
+                                public void run() {
+                                    sendPlayer.teleport(location);
+                                    TeleportRequest.onDelay.remove(sendPlayer.getUniqueId());
+                                }
+                            }.runTaskLater(TeleportRequest.getInstance(), 20L * delay));
+                        }
                     }
                     // remove request
                     TeleportRequest.removeRequest(request);
@@ -252,6 +321,43 @@ public class TPCommands {
             public @NotNull String getUsage() {
                 return "/tpa <player>";
             }
-        }.setDescription("Send a teleport request to a player");//.setName("tpa");
+        }.setDescription("Send a teleport request to a player");
+    }
+
+    /**
+     * Tpdelay command
+     * Sets the delay for teleport commencement
+     * Usage: /tpdelay <seconds>
+     */
+    public void tpdelay() {
+        new CommandHandler("tpdelay", 1, false) {
+
+            @Override
+            public boolean onCommand(CommandSender sender, String[] args) {
+                // initialize variables
+                int newDelay;
+
+                // confirm player entered an integer
+                try {
+                    newDelay = Integer.parseInt(args[0]);
+                } catch (NumberFormatException nfe) {
+                    // if not, notify player
+                    sender.sendMessage(ChatColor.RED + "Delay must be an integer in seconds");
+                    return true;
+                }
+
+                // set new delay and return success
+                TeleportRequest.getInstance().getConfig().set("delay", newDelay);
+                TeleportRequest.getInstance().saveConfig();
+                sender.sendMessage(ChatColor.GREEN + "Delay has been set to " + ChatColor.GRAY +
+                                                        args[0] + ChatColor.GREEN + " seconds.");
+                return true;
+            }
+
+            @Override
+            public @NotNull String getUsage() {
+                return "/tpdelay <seconds>";
+            }
+        }.setDescription("Set the delay for teleport commencement").setPermission("TeleportRequest.admin");
     }
 }
